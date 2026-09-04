@@ -31,6 +31,18 @@ namespace Barcoded_Warehouse_Stock_Tracking
 
                 FeatureManager.LoadConfig();
 
+                if (!LicenseManager.IsLicensed())
+                {
+                    using (var actForm = new FrmActivation())
+                    {
+                        if (actForm.ShowDialog() != DialogResult.OK)
+                        {
+                            Application.Exit();
+                            return;
+                        }
+                    }
+                }
+
                 // EnsureDatabase LoginForm içinde arka planda çalışır — burada bekleme yok
                 using (var loginForm = new LoginForm())
                 {

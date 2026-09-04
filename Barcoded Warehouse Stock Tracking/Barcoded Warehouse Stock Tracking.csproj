@@ -97,6 +97,10 @@
     </Compile>
     <Compile Include="Database.cs" />
     <Compile Include="FeatureManager.cs" />
+    <Compile Include="LicenseManager.cs" />
+    <Compile Include="FrmActivation.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="FrmCategories.cs">
       <SubType>Form</SubType>
     </Compile>
