@@ -63,20 +63,27 @@ CREATE TABLE IF NOT EXISTS Products (
   UnitPrice REAL NOT NULL,
   CostPrice REAL NOT NULL DEFAULT 0,
   VatRate REAL NOT NULL DEFAULT 0,
-  StockQty INTEGER NOT NULL DEFAULT 0,
+  StockQty REAL NOT NULL DEFAULT 0,
   IsActive INTEGER NOT NULL DEFAULT 1,
   Category TEXT NOT NULL DEFAULT '',
-  Material TEXT NOT NULL DEFAULT '',
+  Unit TEXT NOT NULL DEFAULT 'Adet',
+  MaterialType TEXT NOT NULL DEFAULT '',
+  QualityStandard TEXT NOT NULL DEFAULT '',
+  Thickness REAL NOT NULL DEFAULT 0,
+  Width REAL NOT NULL DEFAULT 0,
+  Length REAL NOT NULL DEFAULT 0,
+  TheoreticalWeight REAL NOT NULL DEFAULT 0,
   ShelfLocation TEXT NOT NULL DEFAULT '',
-  BoxQty INTEGER NOT NULL DEFAULT 1,
-  CriticalStock INTEGER NOT NULL DEFAULT 5
+  CriticalStock REAL NOT NULL DEFAULT 5,
+  Material TEXT NOT NULL DEFAULT '',
+  BoxQty INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS StockMovements (
   Id INTEGER PRIMARY KEY AUTOINCREMENT,
   ProductId INTEGER NOT NULL,
   BarcodeSnapshot TEXT NOT NULL,
-  Quantity INTEGER NOT NULL,
+  Quantity REAL NOT NULL,
   Type TEXT NOT NULL,
   Reason TEXT NULL,
   RefType TEXT NULL,
@@ -115,8 +122,9 @@ CREATE TABLE IF NOT EXISTS SaleItems (
   ProductId INTEGER NOT NULL,
   BarcodeSnapshot TEXT NOT NULL,
   NameSnapshot TEXT NOT NULL,
+  UnitSnapshot TEXT NOT NULL DEFAULT 'Adet',
   UnitPrice REAL NOT NULL,
-  Quantity INTEGER NOT NULL,
+  Quantity REAL NOT NULL,
   LineTotal REAL NOT NULL,
   FOREIGN KEY(SaleId) REFERENCES Sales(Id),
   FOREIGN KEY(ProductId) REFERENCES Products(Id)
@@ -166,7 +174,7 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
   SaleReturnId INTEGER NOT NULL,
   SaleItemId INTEGER NOT NULL,
   ProductId INTEGER NOT NULL,
-  Quantity INTEGER NOT NULL,
+  Quantity REAL NOT NULL,
   UnitPrice REAL NOT NULL,
   LineTotal REAL NOT NULL,
   FOREIGN KEY(SaleReturnId) REFERENCES SaleReturns(Id),
@@ -188,13 +196,21 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
                 }
                 catch { /* already exists or error */ }
 
-                // migrations for Glassware personalization
+                // migrations for Metal & personalization
                 foreach (var migration in new[] {
                     "ALTER TABLE Products ADD COLUMN Category TEXT NOT NULL DEFAULT '';",
                     "ALTER TABLE Products ADD COLUMN Material TEXT NOT NULL DEFAULT '';",
                     "ALTER TABLE Products ADD COLUMN ShelfLocation TEXT NOT NULL DEFAULT '';",
                     "ALTER TABLE Products ADD COLUMN BoxQty INTEGER NOT NULL DEFAULT 1;",
-                    "ALTER TABLE Products ADD COLUMN CriticalStock INTEGER NOT NULL DEFAULT 5;"
+                    "ALTER TABLE Products ADD COLUMN CriticalStock REAL NOT NULL DEFAULT 5;",
+                    "ALTER TABLE Products ADD COLUMN Unit TEXT NOT NULL DEFAULT 'Adet';",
+                    "ALTER TABLE Products ADD COLUMN MaterialType TEXT NOT NULL DEFAULT '';",
+                    "ALTER TABLE Products ADD COLUMN QualityStandard TEXT NOT NULL DEFAULT '';",
+                    "ALTER TABLE Products ADD COLUMN Thickness REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN Width REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN Length REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN TheoreticalWeight REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE SaleItems ADD COLUMN UnitSnapshot TEXT NOT NULL DEFAULT 'Adet';"
                 })
                 {
                     try
@@ -402,7 +418,7 @@ ORDER BY datetime(CreatedAt) DESC;";
             }
         }
 
-        public static void InsertMovement(string barcode, int quantity, string type, DateTime date)
+        public static void InsertMovement(string barcode, double quantity, string type, DateTime date)
         {
             using (var conn = GetConnection())
             {
@@ -411,7 +427,7 @@ ORDER BY datetime(CreatedAt) DESC;";
                 {
                     var product = GetProductByBarcode(conn, barcode);
 
-                    int signedQty = string.Equals(type, "Çıkış", StringComparison.OrdinalIgnoreCase) ? -quantity : quantity;
+                    double signedQty = string.Equals(type, "Çıkış", StringComparison.OrdinalIgnoreCase) ? -quantity : quantity;
 
                     using (var cmd = conn.CreateCommand())
                     {
@@ -446,22 +462,24 @@ VALUES(@pid, @b, @q, @t, NULL, 'Manual', NULL, @dt, NULL);";
             public long ProductId { get; set; }
             public string BarcodeSnapshot { get; set; }
             public string NameSnapshot { get; set; }
+            public string UnitSnapshot { get; set; } = "Adet";
             public double UnitPrice { get; set; }
-            public int Quantity { get; set; }
+            public double Quantity { get; set; }
         }
 
-        public static bool TryGetProductForSale(string barcode, out long productId, out string name, out double unitPrice, out int stockQty)
+        public static bool TryGetProductForSale(string barcode, out long productId, out string name, out double unitPrice, out double stockQty, out string unit)
         {
             productId = 0;
             name = null;
             unitPrice = 0;
             stockQty = 0;
+            unit = "Adet";
 
             using (var conn = GetConnection())
             using (var cmd = conn.CreateCommand())
             {
                 conn.Open();
-                cmd.CommandText = "SELECT Id, Name, UnitPrice, StockQty FROM Products WHERE Barcode = @b AND IsActive = 1";
+                cmd.CommandText = "SELECT Id, Name, UnitPrice, StockQty, IFNULL(Unit, 'Adet') FROM Products WHERE Barcode = @b AND IsActive = 1";
                 cmd.Parameters.AddWithValue("@b", barcode);
                 using (var r = cmd.ExecuteReader())
                 {
@@ -469,7 +487,8 @@ VALUES(@pid, @b, @q, @t, NULL, 'Manual', NULL, @dt, NULL);";
                     productId = r.GetInt64(0);
                     name = r.GetString(1);
                     unitPrice = r.GetDouble(2);
-                    stockQty = r.GetInt32(3);
+                    stockQty = Convert.ToDouble(r.GetValue(3));
+                    unit = r.IsDBNull(4) ? "Adet" : r.GetString(4);
                     return true;
                 }
             }
@@ -490,7 +509,7 @@ VALUES(@pid, @b, @q, @t, NULL, 'Manual', NULL, @dt, NULL);";
             double subtotal = 0;
             foreach (var it in items)
             {
-                if (it.Quantity <= 0) throw new InvalidOperationException("Adet 0 olamaz.");
+                if (it.Quantity <= 0) throw new InvalidOperationException("Miktar 0 olamaz.");
                 if (it.UnitPrice < 0) throw new InvalidOperationException("Fiyat 0'dan küçük olamaz.");
                 subtotal += it.UnitPrice * it.Quantity;
             }
@@ -547,30 +566,31 @@ SELECT last_insert_rowid();";
                     foreach (var it in items)
                     {
                         // stock check
-                        int currentStock;
+                        double currentStock;
                         using (var cmdStock = conn.CreateCommand())
                         {
                             cmdStock.Transaction = tx;
                             cmdStock.CommandText = "SELECT StockQty FROM Products WHERE Id = @pid";
                             cmdStock.Parameters.AddWithValue("@pid", it.ProductId);
-                            currentStock = Convert.ToInt32(cmdStock.ExecuteScalar());
+                            currentStock = Convert.ToDouble(cmdStock.ExecuteScalar() ?? 0);
                         }
 
                         if (currentStock < it.Quantity)
                         {
-                            throw new InvalidOperationException($"Yetersiz stok: {it.BarcodeSnapshot} (Mevcut: {currentStock})");
+                            throw new InvalidOperationException($"Yetersiz stok: {it.BarcodeSnapshot} (Mevcut: {currentStock:N2})");
                         }
 
                         using (var cmdItem = conn.CreateCommand())
                         {
                             cmdItem.Transaction = tx;
                             cmdItem.CommandText = @"
-INSERT INTO SaleItems(SaleId, ProductId, BarcodeSnapshot, NameSnapshot, UnitPrice, Quantity, LineTotal)
-VALUES(@sid, @pid, @b, @n, @p, @q, @lt);";
+INSERT INTO SaleItems(SaleId, ProductId, BarcodeSnapshot, NameSnapshot, UnitSnapshot, UnitPrice, Quantity, LineTotal)
+VALUES(@sid, @pid, @b, @n, @u, @p, @q, @lt);";
                             cmdItem.Parameters.AddWithValue("@sid", saleId);
                             cmdItem.Parameters.AddWithValue("@pid", it.ProductId);
                             cmdItem.Parameters.AddWithValue("@b", it.BarcodeSnapshot);
                             cmdItem.Parameters.AddWithValue("@n", it.NameSnapshot);
+                            cmdItem.Parameters.AddWithValue("@u", string.IsNullOrEmpty(it.UnitSnapshot) ? "Adet" : it.UnitSnapshot);
                             cmdItem.Parameters.AddWithValue("@p", it.UnitPrice);
                             cmdItem.Parameters.AddWithValue("@q", it.Quantity);
                             cmdItem.Parameters.AddWithValue("@lt", it.UnitPrice * it.Quantity);

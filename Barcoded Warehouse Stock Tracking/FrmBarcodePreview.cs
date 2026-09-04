@@ -100,7 +100,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             card.Controls.Add(lblInfo);
             this.Controls.Add(card);
 
-            // Kırılabilir Seçeneği (Zücaciye Özelleştirmesi)
+            // Kırılabilir Seçeneği (HATAY METAL Özelleştirmesi)
             chkFragile = new Guna2CheckBox
             {
                 Text = "🍷 Kırılabilir Logosu Ekle (Hassas ürün uyarısı basar)",
@@ -108,7 +108,8 @@ namespace Barcoded_Warehouse_Stock_Tracking
                 Size = new Size(370, 30),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 ForeColor = UiTheme.Danger,
-                CheckedState = { BorderColor = UiTheme.Danger, FillColor = UiTheme.DangerSoft }
+                CheckedState = { BorderColor = UiTheme.Danger, FillColor = UiTheme.DangerSoft },
+                Visible = FeatureManager.EnableFragileOption
             };
             this.Controls.Add(chkFragile);
 

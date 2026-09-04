@@ -336,14 +336,15 @@ namespace Barcoded_Warehouse_Stock_Tracking
         {
             var bc = _txtBarcode.Text.Trim();
             if (string.IsNullOrEmpty(bc)) return;
-            if (Database.TryGetProductForSale(bc, out long pid, out string name, out double price, out int stock))
+            if (Database.TryGetProductForSale(bc, out long pid, out string name, out double price, out double stock, out string unit))
             {
-                int qty = (int)_numQty.Value;
+                double qty = (double)_numQty.Value;
                 _cartItems.Add(new Database.SaleItemInput
                 {
                     ProductId = pid,
                     BarcodeSnapshot = bc,
                     NameSnapshot = name,
+                    UnitSnapshot = unit,
                     UnitPrice = price,
                     Quantity = qty
                 });

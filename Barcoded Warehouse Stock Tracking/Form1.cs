@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -40,7 +40,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
         private readonly List<Guna2Button> _navButtons = new List<Guna2Button>();
         private Guna2Button _navReports;
 
-        // Zücaciye Özelleştirme Alanları
+        // HATAY METAL Özelleştirme Alanları
         private Guna2ComboBox cmbCategory;
         private Guna2ComboBox cmbMaterial;
         private Guna2TextBox txtShelfLocation;
@@ -239,7 +239,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             // ── Firma Adı ──
             var lblCompanyName = new Label
             {
-                Text = "BOZOĞLAN",
+                Text = FeatureManager.CompanyName,
                 Font = new System.Drawing.Font("Segoe UI", 16F, FontStyle.Bold),
                 ForeColor = Color.White,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -249,7 +249,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             };
             var lblCompanySub = new Label
             {
-                Text = "Zücaciye & Ev Gereçleri",
+                Text = FeatureManager.CompanySubTitle,
                 Font = new System.Drawing.Font("Segoe UI", 8.5F, FontStyle.Italic),
                 ForeColor = Color.FromArgb(180, 200, 230),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -670,7 +670,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
                     }
                     if (txtShelfLocation != null) txtShelfLocation.Text = exact.ShelfLocation ?? "";
                     if (nudBoxQty != null) nudBoxQty.Value = exact.BoxQty > 0 ? exact.BoxQty : 1;
-                    if (nudCriticalStock != null) nudCriticalStock.Value = exact.CriticalStock >= 0 ? exact.CriticalStock : 5;
+                    if (nudCriticalStock != null) nudCriticalStock.Value = exact.CriticalStock >= 0 ? (decimal)exact.CriticalStock : 5;
                 }
             }
         }
@@ -1021,10 +1021,10 @@ namespace Barcoded_Warehouse_Stock_Tracking
                 btnReports.Size = new Size(150, 38);
             }
 
-            // ── Zücaciye Bölüm Başlığı ──
+            // ── HATAY METAL Bölüm Başlığı ──
             var lblGlassSection = new Label
             {
-                Text = "── Zücaciye Bilgileri ──",
+                Text = "── HATAY METAL Bilgileri ──",
                 Font = new System.Drawing.Font("Segoe UI", 8.5F, FontStyle.Bold),
                 ForeColor = UiTheme.Primary,
                 Location = new Point(390, 5),

@@ -38,15 +38,24 @@ namespace Barcoded_Warehouse_Stock_Tracking.Entities
         public double UnitPrice { get; set; }
         public double CostPrice { get; set; }
         public double VatRate { get; set; }
-        public int StockQty { get; set; }
+        public double StockQty { get; set; }
         public int IsActive { get; set; } = 1;
         
-        // Zücaciye Özelleştirme Alanları
+        // Metal & Sektörel Özelleştirme Alanları
         public string Category { get; set; } = "";
+        public string Unit { get; set; } = "Adet"; // Kg, Metre, Boy (6m), Adet, Plaka, Ton, m2
+        public string MaterialType { get; set; } = ""; // Kutu Profil, Boru, Sac, Lama, Köşebent, Mil, Paslanmaz, Alüminyum
+        public string QualityStandard { get; set; } = ""; // St37, St52, 304 Paslanmaz, 6063 Alüminyum vb.
+        public double Thickness { get; set; } = 0; // Kalınlık / Et Kalınlığı (mm)
+        public double Width { get; set; } = 0; // Genişlik / Çap / En (mm)
+        public double Length { get; set; } = 0; // Boy / Uzunluk (metre veya mm)
+        public double TheoreticalWeight { get; set; } = 0; // Teorik Metre/m2 Ağırlığı (kg)
+        public string ShelfLocation { get; set; } = ""; // Depo / Saha / Raf Konumu
+        public double CriticalStock { get; set; } = 5;
+
+        // Geriye dönük uyumluluk alanları
         public string Material { get; set; } = "";
-        public string ShelfLocation { get; set; } = "";
         public int BoxQty { get; set; } = 1;
-        public int CriticalStock { get; set; } = 5;
     }
 
     public class StockMovement
@@ -55,7 +64,7 @@ namespace Barcoded_Warehouse_Stock_Tracking.Entities
         public long Id { get; set; }
         public long ProductId { get; set; }
         public string BarcodeSnapshot { get; set; }
-        public int Quantity { get; set; }
+        public double Quantity { get; set; }
         public string Type { get; set; } // Giriş, Çıkış
         public string Reason { get; set; }
         public string RefType { get; set; }
@@ -108,8 +117,9 @@ namespace Barcoded_Warehouse_Stock_Tracking.Entities
         public long ProductId { get; set; }
         public string BarcodeSnapshot { get; set; }
         public string NameSnapshot { get; set; }
+        public string UnitSnapshot { get; set; } = "Adet";
         public double UnitPrice { get; set; }
-        public int Quantity { get; set; }
+        public double Quantity { get; set; }
         public double LineTotal { get; set; }
 
         [ForeignKey("SaleId")]
@@ -180,7 +190,7 @@ namespace Barcoded_Warehouse_Stock_Tracking.Entities
         public long SaleReturnId { get; set; }
         public long SaleItemId { get; set; }
         public long ProductId { get; set; }
-        public int Quantity { get; set; }
+        public double Quantity { get; set; }
         public double UnitPrice { get; set; }
         public double LineTotal { get; set; }
 

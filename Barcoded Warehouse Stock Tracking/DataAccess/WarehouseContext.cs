@@ -36,8 +36,22 @@ namespace Barcoded_Warehouse_Stock_Tracking.DataAccess
                     );
                 ");
 
-                // Varsayılan onarma kodumuz tabloyu daha evvel RefId olmadan yarattıysa diye güncelleme atılır
-                try { Database.ExecuteSqlCommand("ALTER TABLE StockMovements ADD COLUMN RefId INTEGER;"); } catch { }
+                // Metal sektörü kolon ekleme migrasyonları
+                foreach (var col in new[] {
+                    "ALTER TABLE Products ADD COLUMN Unit TEXT NOT NULL DEFAULT 'Adet';",
+                    "ALTER TABLE Products ADD COLUMN MaterialType TEXT NOT NULL DEFAULT '';",
+                    "ALTER TABLE Products ADD COLUMN QualityStandard TEXT NOT NULL DEFAULT '';",
+                    "ALTER TABLE Products ADD COLUMN Thickness REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN Width REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN Length REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN TheoreticalWeight REAL NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Products ADD COLUMN ShelfLocation TEXT NOT NULL DEFAULT '';",
+                    "ALTER TABLE Products ADD COLUMN CriticalStock REAL NOT NULL DEFAULT 5;",
+                    "ALTER TABLE SaleItems ADD COLUMN UnitSnapshot TEXT NOT NULL DEFAULT 'Adet';"
+                })
+                {
+                    try { Database.ExecuteSqlCommand(col); } catch { }
+                }
                 
                 try 
                 {
@@ -53,12 +67,14 @@ namespace Barcoded_Warehouse_Stock_Tracking.DataAccess
                     if (count == 0)
                     {
                         Database.ExecuteSqlCommand(@"
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Yemek Takımı', datetime('now'));
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Bardak/Kadeh', datetime('now'));
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Tencere/Tava', datetime('now'));
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Çatal Bıçak', datetime('now'));
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Dekorasyon/Aksesuar', datetime('now'));
-                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Diğer', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Kutu Profil', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Sanayi & Boru', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Sac Grubu (DKP/Siyah/Galvaniz)', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Dolu Demir & Lama', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Köşebent & NPU/NPI', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Paslanmaz Çelik', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Alüminyum', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Hırdavat & Bağlantı', datetime('now'));
                         ");
                     }
                 } 

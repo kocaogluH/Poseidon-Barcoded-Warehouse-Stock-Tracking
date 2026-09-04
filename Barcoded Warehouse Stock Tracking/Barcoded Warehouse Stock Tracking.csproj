@@ -96,7 +96,10 @@
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
     <Compile Include="Database.cs" />
-    <Compile Include="FrmCategories.cs" />
+    <Compile Include="FeatureManager.cs" />
+    <Compile Include="FrmCategories.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UiTheme.cs" />
     <Compile Include="AppPaths.cs" />
     <Compile Include="AutoUpdater.cs" />
@@ -157,6 +160,7 @@
     <Compile Include="DataAccess\WarehouseContext.cs" />
     <Compile Include="DataAccess\GenericRepository.cs" />
     <Compile Include="Business\Services.cs" />
+    <Compile Include="Business\MetalCalculator.cs" />
     <Compile Include="LoginForm.cs">
       <SubType>Form</SubType>
     </Compile>
