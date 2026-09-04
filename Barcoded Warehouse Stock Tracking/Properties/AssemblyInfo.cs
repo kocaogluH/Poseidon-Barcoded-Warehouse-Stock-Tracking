@@ -4,11 +4,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Barcoded Warehouse Stock Tracking")]
+[assembly: AssemblyTitle("Poseidon Barcoded Warehouse Stock Tracking")]
 [assembly: AssemblyDescription("Poseidon Warehouse & Stock Control System")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Poseidon Yazılım")]
-[assembly: AssemblyProduct("Barcoded Warehouse Stock Tracking")]
+[assembly: AssemblyProduct("Poseidon Barcoded Warehouse Stock Tracking")]
 [assembly: AssemblyCopyright("Copyright © 2026")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

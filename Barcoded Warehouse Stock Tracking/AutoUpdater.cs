@@ -19,7 +19,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
     public static class AutoUpdater
     {
         private const string RepoOwner = "kocaogluH";
-        private const string RepoName = "Bozoglan-Barcoded-Warehouse-Stock-Tracking";
+        private const string RepoName = "Poseidon-Barcoded-Warehouse-Stock-Tracking";
         private const string ApiUrl = "https://api.github.com/repos/" + RepoOwner + "/" + RepoName + "/releases/latest";
 
         static AutoUpdater()
