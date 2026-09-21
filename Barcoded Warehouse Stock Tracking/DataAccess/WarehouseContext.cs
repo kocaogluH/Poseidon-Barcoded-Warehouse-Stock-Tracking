@@ -34,6 +34,33 @@ namespace Barcoded_Warehouse_Stock_Tracking.DataAccess
                         CreatedByUserId INTEGER,
                         CreatedAt TEXT
                     );
+                    CREATE TABLE IF NOT EXISTS Quotes (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        QuoteNo TEXT NOT NULL,
+                        CustomerId INTEGER,
+                        CustomerName TEXT,
+                        CustomerPhone TEXT,
+                        CustomerEmail TEXT,
+                        Subtotal REAL NOT NULL DEFAULT 0,
+                        DiscountTotal REAL NOT NULL DEFAULT 0,
+                        GrandTotal REAL NOT NULL DEFAULT 0,
+                        Status TEXT NOT NULL DEFAULT 'Beklemede',
+                        ValidUntil TEXT,
+                        Notes TEXT,
+                        CreatedAt TEXT NOT NULL,
+                        CreatedByUserId INTEGER
+                    );
+                    CREATE TABLE IF NOT EXISTS QuoteItems (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        QuoteId INTEGER NOT NULL,
+                        ProductId INTEGER NOT NULL,
+                        Barcode TEXT,
+                        ProductName TEXT,
+                        Unit TEXT NOT NULL DEFAULT 'Adet',
+                        Quantity REAL NOT NULL DEFAULT 1,
+                        UnitPrice REAL NOT NULL DEFAULT 0,
+                        LineTotal REAL NOT NULL DEFAULT 0
+                    );
                 ");
 
                 // Metal sektörü kolon ekleme migrasyonları
@@ -114,5 +141,7 @@ namespace Barcoded_Warehouse_Stock_Tracking.DataAccess
         public DbSet<SaleReturn> SaleReturns { get; set; }
         public DbSet<SaleReturnItem> SaleReturnItems { get; set; }
         public DbSet<Log> Logs { get; set; }
+        public DbSet<Quote> Quotes { get; set; }
+        public DbSet<QuoteItem> QuoteItems { get; set; }
     }
 }

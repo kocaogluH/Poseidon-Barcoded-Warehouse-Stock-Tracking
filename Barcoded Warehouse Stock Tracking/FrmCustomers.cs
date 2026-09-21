@@ -42,11 +42,13 @@ namespace Barcoded_Warehouse_Stock_Tracking
             tb.Margin = new Padding(0, 0, 0, 10);
         }
 
+        private readonly Guna2ComboBox _cmbSort = new Guna2ComboBox();
+
         public FrmCustomers()
         {
-            Text = "Poseidon Yazılım — Müşteriler / Cari";
+            Text = "Poseidon Yazılım — Müşteriler / Cari Takibi";
             StartPosition = FormStartPosition.CenterScreen;
-            Width = 1020; Height = 620;
+            Width = 1080; Height = 650;
             BackColor = BgDark;
             DoubleBuffered = true;
 
@@ -120,7 +122,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             _cmbCustomer.Font = new Font("Segoe UI", 10);
             _cmbCustomer.Margin = new Padding(0, 0, 0, 10);
 
-            // Yöntem + Tutar yan yana — FlowLayoutPanel ile
+            // Yöntem + Tutar yan yana
             var pnlMethodRow = new Panel { Dock = DockStyle.Fill };
 
             _cmbMethod.Location = new Point(0, 0); _cmbMethod.Width = 150; _cmbMethod.Height = 42;
@@ -175,7 +177,6 @@ namespace Barcoded_Warehouse_Stock_Tracking
                 }
             };
 
-            // tlp'ye sırayla ekle
             tlp.Controls.Add(lblSec1, 0, 0);
             tlp.Controls.Add(_txtName, 0, 1);
             tlp.Controls.Add(_txtPhone, 0, 2);
@@ -186,13 +187,53 @@ namespace Barcoded_Warehouse_Stock_Tracking
             tlp.Controls.Add(_cmbCustomer, 0, 7);
             tlp.Controls.Add(pnlMethodRow, 0, 8);
             tlp.Controls.Add(_btnCollect, 0, 9);
-            tlp.Controls.Add(new Panel(), 0, 10); // Boşluk
+            tlp.Controls.Add(new Panel(), 0, 10);
             tlp.Controls.Add(btnDeleteCustomer, 0, 11);
 
             left.Controls.Add(tlp);
 
-            // ── SAĞ PANEL (Grid) ─────────────────────────────────────────────────
+            // ── SAĞ PANEL (Grid & Filtre) ────────────────────────────────────────
             var center = new Panel { Dock = DockStyle.Fill, BackColor = BgDark, Padding = new Padding(12) };
+
+            // Üst Borç Filtresi Barı
+            var pnlSort = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 45,
+                BackColor = BgMid,
+                Padding = new Padding(10, 5, 10, 5)
+            };
+
+            var lblSort = new Label
+            {
+                Text = "🔍  Müşteri / Borç Sıralaması:",
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Accent,
+                AutoSize = true,
+                Location = new Point(10, 12)
+            };
+
+            _cmbSort.Location = new Point(220, 6);
+            _cmbSort.Size = new Size(240, 34);
+            _cmbSort.DropDownStyle = ComboBoxStyle.DropDownList;
+            _cmbSort.BorderRadius = 6;
+            _cmbSort.FillColor = BgInput;
+            _cmbSort.BorderColor = UiTheme.InputBorder;
+            _cmbSort.ForeColor = TextMain;
+            _cmbSort.Font = new Font("Segoe UI", 9.5f);
+            _cmbSort.Items.AddRange(new object[] {
+                "Tüm Müşteriler (A-Z)",
+                "En Çok Borcu Olanlar (Azalan)",
+                "En Az Borcu Olanlar (Artan)",
+                "Sadece Borçlu Müşteriler (Borç > 0)"
+            });
+            _cmbSort.SelectedIndex = 0;
+            _cmbSort.SelectedIndexChanged += (s, e) => LoadData();
+
+            pnlSort.Controls.Add(lblSort);
+            pnlSort.Controls.Add(_cmbSort);
+
+            center.Controls.Add(pnlSort);
 
             _grid.Dock = DockStyle.Fill;
             _grid.AllowUserToAddRows = false; _grid.ReadOnly = true;
@@ -217,10 +258,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             _grid.ColumnHeadersHeight = 40;
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
 
-            // Ghosting sorununu önlemek için
-            // Ghosting sorununu önlemek için
-            typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(_grid, true, null);
+            _grid.CellFormatting += Grid_CellFormatting;
 
             center.Controls.Add(_grid);
 
@@ -230,12 +268,52 @@ namespace Barcoded_Warehouse_Stock_Tracking
             LoadData();
         }
 
+        private void Grid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (_grid.Columns[e.ColumnIndex].Name == "Balance" && e.Value != null)
+            {
+                if (double.TryParse(e.Value.ToString(), out double bal))
+                {
+                    if (bal > 0)
+                    {
+                        e.CellStyle.ForeColor = Color.Crimson;
+                        e.CellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                    }
+                    else
+                    {
+                        e.CellStyle.ForeColor = Color.SeaGreen;
+                    }
+                }
+            }
+        }
+
         private void LoadData()
         {
             try
             {
                 var dt = Database.GetCustomers();
-                _grid.DataSource = dt;
+                DataView dv = dt.DefaultView;
+
+                int sortIndex = _cmbSort.SelectedIndex;
+                if (sortIndex == 1) // En çok borcu olanlar (azalan)
+                {
+                    dv.Sort = "Balance DESC";
+                }
+                else if (sortIndex == 2) // En az borcu olanlar (artan)
+                {
+                    dv.Sort = "Balance ASC";
+                }
+                else if (sortIndex == 3) // Sadece borçlu müşteriler (Borç > 0)
+                {
+                    dv.RowFilter = "Balance > 0";
+                    dv.Sort = "Balance DESC";
+                }
+                else // Tüm Müşteriler (A-Z)
+                {
+                    dv.Sort = "Name ASC";
+                }
+
+                _grid.DataSource = dv.ToTable();
                 
                 // Başlıkları Türkçeleştir
                 if (_grid.Columns.Count > 0)
@@ -243,7 +321,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
                     if (_grid.Columns["Name"] != null) _grid.Columns["Name"].HeaderText = "Müşteri Adı";
                     if (_grid.Columns["Phone"] != null) _grid.Columns["Phone"].HeaderText = "Telefon";
                     if (_grid.Columns["Email"] != null) _grid.Columns["Email"].HeaderText = "E-Posta";
-                    if (_grid.Columns["Balance"] != null) _grid.Columns["Balance"].HeaderText = "Bakiye";
+                    if (_grid.Columns["Balance"] != null) _grid.Columns["Balance"].HeaderText = "Borç / Bakiye (₺)";
                 }
 
                 _cmbCustomer.DataSource = dt.Copy();

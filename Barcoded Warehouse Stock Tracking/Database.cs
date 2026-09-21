@@ -10,7 +10,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
     public static class Database
     {
         public static event Action DataChanged; // Global event for data updates
-        private static void NotifyDataChanged() => DataChanged?.Invoke();
+        public static void NotifyDataChanged() => DataChanged?.Invoke();
 
         private static readonly string ConnectionString = GetConnectionString();
 

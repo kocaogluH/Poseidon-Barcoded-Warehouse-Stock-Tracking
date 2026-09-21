@@ -211,4 +211,48 @@ namespace Barcoded_Warehouse_Stock_Tracking.Entities
         public long? UserId { get; set; }
         public string Details { get; set; }
     }
+
+    public class Quote
+    {
+        [Key]
+        public long Id { get; set; }
+        [Required]
+        public string QuoteNo { get; set; }
+        public long? CustomerId { get; set; }
+        public string CustomerName { get; set; }
+        public string CustomerPhone { get; set; }
+        public string CustomerEmail { get; set; }
+        public double Subtotal { get; set; }
+        public double DiscountTotal { get; set; }
+        public double GrandTotal { get; set; }
+        public string Status { get; set; } = "Beklemede"; // Beklemede, Kabul Edildi, Reddedildi, İptal
+        public DateTime ValidUntil { get; set; } = DateTime.Now.AddDays(15);
+        public string Notes { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public long? CreatedByUserId { get; set; }
+
+        [ForeignKey("CustomerId")]
+        public virtual Customer Customer { get; set; }
+
+        public virtual ICollection<QuoteItem> QuoteItems { get; set; } = new List<QuoteItem>();
+    }
+
+    public class QuoteItem
+    {
+        [Key]
+        public long Id { get; set; }
+        public long QuoteId { get; set; }
+        public long ProductId { get; set; }
+        public string Barcode { get; set; }
+        public string ProductName { get; set; }
+        public string Unit { get; set; } = "Adet";
+        public double Quantity { get; set; }
+        public double UnitPrice { get; set; }
+        public double LineTotal { get; set; }
+
+        [ForeignKey("QuoteId")]
+        public virtual Quote Quote { get; set; }
+        [ForeignKey("ProductId")]
+        public virtual Product Product { get; set; }
+    }
 }

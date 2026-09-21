@@ -112,11 +112,11 @@ namespace Barcoded_Warehouse_Stock_Tracking
             var btnDeleteProduct = new Guna2Button
             {
                 Text = "🗑  Ürünü Sil",
-                Size = new Size(200, 38),
+                Size = new Size(130, 38),
                 BorderRadius = 10,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 FillColor = UiTheme.Danger,
-                Font = new System.Drawing.Font("Segoe UI", 10, FontStyle.Bold),
+                Font = new System.Drawing.Font("Segoe UI", 9.5f, FontStyle.Bold),
                 ForeColor = Color.White,
                 HoverState = { FillColor = ControlPaint.Dark(UiTheme.Danger, 0.08f) }
             };
@@ -144,11 +144,98 @@ namespace Barcoded_Warehouse_Stock_Tracking
                     }
                 }
             };
+
+            // Excel Dışa Aktar Butonu
+            var btnExportExcel = new Guna2Button
+            {
+                Text = "📤 Excel Dışa Aktar",
+                Size = new Size(150, 38),
+                BorderRadius = 10,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                FillColor = Color.FromArgb(40, 140, 90),
+                Font = new System.Drawing.Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.White
+            };
+            btnExportExcel.Click += (s, ev) =>
+            {
+                using (var sfd = new SaveFileDialog())
+                {
+                    sfd.Filter = "CSV Dosyası (*.csv)|*.csv";
+                    sfd.FileName = $"Stok_Listesi_{DateTime.Now:yyyyMMdd}.csv";
+                    if (sfd.ShowDialog() == DialogResult.OK)
+                    {
+                        var prods = _productService.GetAllActiveProducts();
+                        if (ExcelCsvService.ExportProductsToCsv(sfd.FileName, prods, out string err))
+                        {
+                            MessageBox.Show("Stok listesi başarıyla Excel / CSV dosyasına aktarıldı.", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Dışa aktarma hatası: " + err, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
+                }
+            };
+
+            // Excel İçe Aktar Butonu
+            var btnImportExcel = new Guna2Button
+            {
+                Text = "📥 Excel İçe Aktar",
+                Size = new Size(150, 38),
+                BorderRadius = 10,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                FillColor = UiTheme.PrimaryDark,
+                Font = new System.Drawing.Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.White
+            };
+            btnImportExcel.Click += (s, ev) =>
+            {
+                using (var ofd = new OpenFileDialog())
+                {
+                    ofd.Filter = "CSV Dosyası (*.csv)|*.csv|Tüm Dosyalar (*.*)|*.*";
+                    if (ofd.ShowDialog() == DialogResult.OK)
+                    {
+                        var confirm = MessageBox.Show(
+                            "Sistemde zaten kayıtlı olan barkodlu ürünler tespit edildiğinde mevcut veriler GÜNCELLENSİN mi?\n\n- [Evet]: Var olan ürünler güncellenir.\n- [Hayır]: Var olan ürünler atlanır, sadece yeni ürünler eklenir.",
+                            "Çakışan Ürün Davranışı Seçimi",
+                            MessageBoxButtons.YesNoCancel,
+                            MessageBoxIcon.Question);
+
+                        if (confirm == DialogResult.Cancel) return;
+
+                        bool updateExisting = (confirm == DialogResult.Yes);
+
+                        var res = ExcelCsvService.ImportProductsFromCsv(ofd.FileName, _productService, updateExisting);
+
+                        string msg = $"İçe Aktarma Tamamlandı:\n\n" +
+                                     $"• Yeni Eklenen Ürün Sayısı: {res.SuccessCount}\n" +
+                                     $"• Güncellenen Ürün Sayısı: {res.UpdatedCount}\n" +
+                                     $"• Atlanan Ürün Sayısı: {res.SkippedCount}";
+
+                        if (res.Errors.Count > 0)
+                        {
+                            msg += $"\n\nKarşılaşılan Uyarılar/Hatalar ({res.Errors.Count}):\n" + string.Join("\n", res.Errors.Take(5));
+                        }
+
+                        MessageBox.Show(msg, "İçe Aktarma Sonucu", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        RefreshAll();
+                    }
+                }
+            };
+
             tabProducts.Controls.Add(btnDeleteProduct);
-            void placeDeleteBtn(object __, EventArgs ___) =>
-                btnDeleteProduct.Left = tabProducts.ClientSize.Width - btnDeleteProduct.Width - 18;
-            tabProducts.Resize += placeDeleteBtn;
-            placeDeleteBtn(null, null);
+            tabProducts.Controls.Add(btnExportExcel);
+            tabProducts.Controls.Add(btnImportExcel);
+
+            void placeTopButtons(object __, EventArgs ___)
+            {
+                int rightMargin = 18;
+                btnDeleteProduct.Left = tabProducts.ClientSize.Width - btnDeleteProduct.Width - rightMargin;
+                btnExportExcel.Left = btnDeleteProduct.Left - btnExportExcel.Width - 10;
+                btnImportExcel.Left = btnExportExcel.Left - btnImportExcel.Width - 10;
+            }
+            tabProducts.Resize += placeTopButtons;
+            placeTopButtons(null, null);
 
             ApplyLightChromeToDataTabs();
 
@@ -302,6 +389,8 @@ namespace Barcoded_Warehouse_Stock_Tracking
             nav("  🏠  Özet", () => { tabControl.SelectedIndex = 0; });
             nav("  🛒  Satış / POS", () => { OpenChildPage("Satış / POS", new FrmPos()); });
             nav("  ↩  İade / İptal", () => { OpenChildPage("İade / İptal", new FrmReturns()); });
+            nav("  📜  Fiyat Teklifleri", () => { OpenChildPage("Fiyat Teklifleri", new FrmQuotes()); });
+            nav("  📈  Satış & Stok Analizi", () => { OpenChildPage("Satış & Stok Analizi", new FrmSalesAnalysis()); });
             nav("  📦  Ürünler", () => { tabControl.SelectedIndex = 1; });
             nav("  🏷  Kategoriler", () => { OpenChildPage("Kategoriler", new FrmCategories()); });
             nav("  📋  Stok Hareketleri", () => { tabControl.SelectedIndex = 2; });

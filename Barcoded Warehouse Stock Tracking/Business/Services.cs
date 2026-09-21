@@ -7,6 +7,21 @@ using System.Data;
 
 namespace Barcoded_Warehouse_Stock_Tracking.Business
 {
+    public class ProductAnalysisItem
+    {
+        public long ProductId { get; set; }
+        public string Barcode { get; set; }
+        public string Name { get; set; }
+        public string Category { get; set; }
+        public string Unit { get; set; }
+        public double UnitPrice { get; set; }
+        public double CostPrice { get; set; }
+        public double StockQty { get; set; }
+        public double CriticalStock { get; set; }
+        public double TotalSoldQty { get; set; }
+        public double TotalRevenue { get; set; }
+    }
+
     public class ProductService
     {
         private GenericRepository<Product> _repository;
@@ -58,6 +73,142 @@ namespace Barcoded_Warehouse_Stock_Tracking.Business
         public int GetLowStockCount()
         {
              return _repository.Find(p => p.IsActive == 1 && p.StockQty < p.CriticalStock).Count();
+        }
+
+        public List<ProductAnalysisItem> GetTopSellingProductsAnalysis(WarehouseContext context, int limit = 50)
+        {
+            var salesGroup = context.SaleItems
+                .Where(si => si.Sale.Status == "Completed")
+                .GroupBy(si => si.ProductId)
+                .Select(g => new { ProductId = g.Key, TotalSoldQty = g.Sum(x => x.Quantity), TotalRevenue = g.Sum(x => x.LineTotal) })
+                .OrderByDescending(x => x.TotalSoldQty)
+                .Take(limit)
+                .ToList();
+
+            var result = new List<ProductAnalysisItem>();
+            foreach (var sg in salesGroup)
+            {
+                var p = context.Products.FirstOrDefault(x => x.Id == sg.ProductId && x.IsActive == 1);
+                if (p != null)
+                {
+                    result.Add(new ProductAnalysisItem
+                    {
+                        ProductId = p.Id,
+                        Barcode = p.Barcode,
+                        Name = p.Name,
+                        Category = p.Category,
+                        Unit = p.Unit,
+                        UnitPrice = p.UnitPrice,
+                        CostPrice = p.CostPrice,
+                        StockQty = p.StockQty,
+                        CriticalStock = p.CriticalStock,
+                        TotalSoldQty = sg.TotalSoldQty,
+                        TotalRevenue = sg.TotalRevenue
+                    });
+                }
+            }
+            return result;
+        }
+
+        public List<ProductAnalysisItem> GetLowSellingProductsAnalysis(WarehouseContext context, int limit = 50)
+        {
+            var salesGroup = context.SaleItems
+                .Where(si => si.Sale.Status == "Completed")
+                .GroupBy(si => si.ProductId)
+                .Select(g => new { ProductId = g.Key, TotalSoldQty = g.Sum(x => x.Quantity), TotalRevenue = g.Sum(x => x.LineTotal) })
+                .OrderBy(x => x.TotalSoldQty)
+                .Take(limit)
+                .ToList();
+
+            var result = new List<ProductAnalysisItem>();
+            foreach (var sg in salesGroup)
+            {
+                var p = context.Products.FirstOrDefault(x => x.Id == sg.ProductId && x.IsActive == 1);
+                if (p != null)
+                {
+                    result.Add(new ProductAnalysisItem
+                    {
+                        ProductId = p.Id,
+                        Barcode = p.Barcode,
+                        Name = p.Name,
+                        Category = p.Category,
+                        Unit = p.Unit,
+                        UnitPrice = p.UnitPrice,
+                        CostPrice = p.CostPrice,
+                        StockQty = p.StockQty,
+                        CriticalStock = p.CriticalStock,
+                        TotalSoldQty = sg.TotalSoldQty,
+                        TotalRevenue = sg.TotalRevenue
+                    });
+                }
+            }
+            return result;
+        }
+
+        public List<ProductAnalysisItem> GetNeverSoldProductsAnalysis(WarehouseContext context)
+        {
+            var soldProductIds = context.SaleItems
+                .Where(si => si.Sale.Status == "Completed")
+                .Select(si => si.ProductId)
+                .Distinct()
+                .ToList();
+
+            var neverSold = context.Products
+                .Where(p => p.IsActive == 1 && !soldProductIds.Contains(p.Id))
+                .OrderBy(p => p.Name)
+                .ToList();
+
+            return neverSold.Select(p => new ProductAnalysisItem
+            {
+                ProductId = p.Id,
+                Barcode = p.Barcode,
+                Name = p.Name,
+                Category = p.Category,
+                Unit = p.Unit,
+                UnitPrice = p.UnitPrice,
+                CostPrice = p.CostPrice,
+                StockQty = p.StockQty,
+                CriticalStock = p.CriticalStock,
+                TotalSoldQty = 0,
+                TotalRevenue = 0
+            }).ToList();
+        }
+
+        public bool QuickStockIn(WarehouseContext context, long productId, double addQty, string reason, long? userId)
+        {
+            var p = context.Products.Find(productId);
+            if (p == null) return false;
+
+            p.StockQty += addQty;
+
+            var sm = new StockMovement
+            {
+                ProductId = p.Id,
+                BarcodeSnapshot = p.Barcode,
+                Type = "Giriş",
+                Quantity = addQty,
+                Reason = string.IsNullOrWhiteSpace(reason) ? "Analiz Ekranından Hızlı Stok Girişi" : reason,
+                RefType = "Manual",
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.Now
+            };
+
+            context.StockMovements.Add(sm);
+            context.SaveChanges();
+            Database.NotifyDataChanged();
+            return true;
+        }
+
+        public bool QuickPriceUpdate(WarehouseContext context, long productId, double newUnitPrice, double newCostPrice)
+        {
+            var p = context.Products.Find(productId);
+            if (p == null) return false;
+
+            p.UnitPrice = newUnitPrice;
+            p.CostPrice = newCostPrice;
+            context.SaveChanges();
+            Database.NotifyDataChanged();
+            return true;
         }
     }
 
