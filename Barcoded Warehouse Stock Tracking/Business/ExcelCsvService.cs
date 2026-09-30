@@ -165,6 +165,116 @@ namespace Barcoded_Warehouse_Stock_Tracking.Business
             return result;
         }
 
+        public static ImportResult UpdatePricesFromCsv(string filePath, ProductService productService, bool updateUnitPrice = true, bool updateCostPrice = false)
+        {
+            var result = new ImportResult();
+            if (!File.Exists(filePath))
+            {
+                result.Errors.Add("Dosya bulunamadı.");
+                return result;
+            }
+
+            try
+            {
+                string[] lines = File.ReadAllLines(filePath, Encoding.UTF8);
+                if (lines.Length <= 1)
+                {
+                    result.Errors.Add("Dosya boş veya sadece başlık satırı içeriyor.");
+                    return result;
+                }
+
+                char delimiter = lines[0].Contains(";") ? ';' : ',';
+
+                // Başlık satırını analiz et (Sütun indekslerini tespit et)
+                string[] headers = ParseCsvLine(lines[0], delimiter);
+                int barcodeCol = -1;
+                int nameCol = -1;
+                int unitPriceCol = -1;
+                int costPriceCol = -1;
+
+                for (int c = 0; c < headers.Length; c++)
+                {
+                    string h = UnescapeCsv(headers[c]).ToLower().Trim();
+                    if (h.Contains("barkod") || h.Contains("barcode")) barcodeCol = c;
+                    else if (h.Contains("ürün") || h.Contains("urun") || h.Contains("name")) nameCol = c;
+                    else if (h.Contains("birim fiyat") || h.Contains("satış") || h.Contains("satis") || h.Contains("price")) unitPriceCol = c;
+                    else if (h.Contains("maliyet") || h.Contains("cost")) costPriceCol = c;
+                }
+
+                // Varsayılan sütun pozisyonları
+                if (barcodeCol == -1) barcodeCol = 0;
+                if (unitPriceCol == -1) unitPriceCol = headers.Length >= 7 ? 6 : 1; // Standart dışa aktarma formatında birim fiyat col 6
+
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    string line = lines[i].Trim();
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    string[] cols = ParseCsvLine(line, delimiter);
+                    if (cols.Length <= barcodeCol) continue;
+
+                    string barcode = UnescapeCsv(cols[barcodeCol]);
+                    string name = (nameCol != -1 && cols.Length > nameCol) ? UnescapeCsv(cols[nameCol]) : "";
+
+                    Product product = null;
+                    if (!string.IsNullOrWhiteSpace(barcode))
+                    {
+                        product = productService.GetProductByBarcode(barcode);
+                    }
+                    if (product == null && !string.IsNullOrWhiteSpace(name))
+                    {
+                        var matches = productService.SearchProducts(name);
+                        if (matches.Count > 0) product = matches[0];
+                    }
+
+                    if (product != null)
+                    {
+                        bool updated = false;
+                        if (updateUnitPrice && unitPriceCol != -1 && cols.Length > unitPriceCol)
+                        {
+                            string valStr = UnescapeCsv(cols[unitPriceCol]).Replace(",", ".");
+                            if (double.TryParse(valStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double up))
+                            {
+                                product.UnitPrice = up;
+                                updated = true;
+                            }
+                        }
+
+                        if (updateCostPrice && costPriceCol != -1 && cols.Length > costPriceCol)
+                        {
+                            string valStr = UnescapeCsv(cols[costPriceCol]).Replace(",", ".");
+                            if (double.TryParse(valStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double cp))
+                            {
+                                product.CostPrice = cp;
+                                updated = true;
+                            }
+                        }
+
+                        if (updated)
+                        {
+                            productService.UpdateProduct(product);
+                            result.UpdatedCount++;
+                        }
+                        else
+                        {
+                            result.SkippedCount++;
+                        }
+                    }
+                    else
+                    {
+                        result.SkippedCount++;
+                        result.Errors.Add($"Satır {i + 1}: Ürün bulunamadı ({barcode} - {name})");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add("Fiyat güncelleme hatası: " + ex.Message);
+            }
+
+            return result;
+        }
+
         public static bool ExportDataTableToCsv(string filePath, DataTable dt, out string errorMessage)
         {
             errorMessage = string.Empty;

@@ -223,16 +223,60 @@ namespace Barcoded_Warehouse_Stock_Tracking
                 }
             };
 
+            // Toplu Fiyat Güncelleme & Zam/İndirim Butonu
+            var btnBulkPriceUpdate = new Guna2Button
+            {
+                Text = "🏷️ Toplu Fiyat & Zam/İndirim",
+                Size = new Size(210, 38),
+                BorderRadius = 10,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                FillColor = UiTheme.Primary,
+                Font = new System.Drawing.Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.White
+            };
+            btnBulkPriceUpdate.Click += (s, ev) =>
+            {
+                OpenChildPage("Toplu Fiyat Güncelleme", new FrmBulkPriceUpdate());
+            };
+
             tabProducts.Controls.Add(btnDeleteProduct);
             tabProducts.Controls.Add(btnExportExcel);
             tabProducts.Controls.Add(btnImportExcel);
+            tabProducts.Controls.Add(btnBulkPriceUpdate);
 
             void placeTopButtons(object __, EventArgs ___)
             {
                 int rightMargin = 18;
+                int topY = 212; // DataGridView üstünde temiz eylem çubuğu hizalaması
+                btnDeleteProduct.Top = topY;
+                btnExportExcel.Top = topY;
+                btnImportExcel.Top = topY;
+                btnBulkPriceUpdate.Top = topY;
+
                 btnDeleteProduct.Left = tabProducts.ClientSize.Width - btnDeleteProduct.Width - rightMargin;
                 btnExportExcel.Left = btnDeleteProduct.Left - btnExportExcel.Width - 10;
                 btnImportExcel.Left = btnExportExcel.Left - btnImportExcel.Width - 10;
+                btnBulkPriceUpdate.Left = btnImportExcel.Left - btnBulkPriceUpdate.Width - 10;
+
+                // Kategori sekmelerini butonların soluna kadar dinamik hizala (üst üste binmeyi engeller)
+                if (_flpCategoryTabs != null)
+                {
+                    _flpCategoryTabs.Top = topY;
+                    int maxCategoryWidth = btnBulkPriceUpdate.Left - 28;
+                    if (maxCategoryWidth > 150)
+                    {
+                        _flpCategoryTabs.Width = maxCategoryWidth;
+                    }
+                }
+
+                // DataGridView tablosunu ekran genişliğine tam yayılacak şekilde boyutlandır
+                if (dgvProducts != null)
+                {
+                    dgvProducts.Left = 18;
+                    dgvProducts.Top = 260;
+                    dgvProducts.Width = Math.Max(300, tabProducts.ClientSize.Width - 36);
+                    dgvProducts.Height = Math.Max(200, tabProducts.ClientSize.Height - 275);
+                }
             }
             tabProducts.Resize += placeTopButtons;
             placeTopButtons(null, null);
@@ -391,6 +435,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             nav("  ↩  İade / İptal", () => { OpenChildPage("İade / İptal", new FrmReturns()); });
             nav("  📜  Fiyat Teklifleri", () => { OpenChildPage("Fiyat Teklifleri", new FrmQuotes()); });
             nav("  📈  Satış & Stok Analizi", () => { OpenChildPage("Satış & Stok Analizi", new FrmSalesAnalysis()); });
+            nav("  🏷  Toplu Fiyat Güncelleme", () => { OpenChildPage("Toplu Fiyat Güncelleme", new FrmBulkPriceUpdate()); });
             nav("  📦  Ürünler", () => { tabControl.SelectedIndex = 1; });
             nav("  🏷  Kategoriler", () => { OpenChildPage("Kategoriler", new FrmCategories()); });
             nav("  📋  Stok Hareketleri", () => { tabControl.SelectedIndex = 2; });
@@ -427,11 +472,60 @@ namespace Barcoded_Warehouse_Stock_Tracking
 
             tabControl.SelectedIndexChanged += (_, __) =>
             {
-                if (_navButtons == null || _navButtons.Count < 5) return;
-                int i = tabControl.SelectedIndex;
-                if (i == 0) SetNavActive(_navButtons[0]);
-                else if (i == 1) SetNavActive(_navButtons[3]);
-                else if (i == 2) SetNavActive(_navButtons[4]);
+                if (_navButtons == null || _navButtons.Count < 12) return;
+                var selectedTab = tabControl.SelectedTab;
+                if (selectedTab == null) return;
+
+                string text = selectedTab.Text ?? "";
+
+                if (selectedTab == tabProducts || text.Contains("Ürün"))
+                {
+                    SetNavActive(_navButtons[6]); // Ürünler
+                }
+                else if (selectedTab == tabMovements || text.Contains("Stok Hareket"))
+                {
+                    SetNavActive(_navButtons[8]); // Stok Hareketleri
+                }
+                else if (text.Contains("Özet") || tabControl.SelectedIndex == 0)
+                {
+                    SetNavActive(_navButtons[0]); // Özet
+                }
+                else if (text.Contains("Satış / POS"))
+                {
+                    SetNavActive(_navButtons[1]); // Satış / POS
+                }
+                else if (text.Contains("İade"))
+                {
+                    SetNavActive(_navButtons[2]); // İade / İptal
+                }
+                else if (text.Contains("Fiyat Teklif"))
+                {
+                    SetNavActive(_navButtons[3]); // Fiyat Teklifleri
+                }
+                else if (text.Contains("Analiz"))
+                {
+                    SetNavActive(_navButtons[4]); // Satış & Stok Analizi
+                }
+                else if (text.Contains("Toplu Fiyat"))
+                {
+                    SetNavActive(_navButtons[5]); // Toplu Fiyat Güncelleme
+                }
+                else if (text.Contains("Kategori"))
+                {
+                    SetNavActive(_navButtons[7]); // Kategoriler
+                }
+                else if (text.Contains("Müşteri"))
+                {
+                    SetNavActive(_navButtons[9]); // Müşteriler
+                }
+                else if (text.Contains("Rapor"))
+                {
+                    SetNavActive(_navButtons[10]); // Raporlar
+                }
+                else if (text.Contains("Ayar"))
+                {
+                    SetNavActive(_navButtons[11]); // Ayarlar
+                }
             };
         }
 
@@ -1083,32 +1177,18 @@ namespace Barcoded_Warehouse_Stock_Tracking
             // Yeni sağ sütun (X=390..600): Zücaciye alanları — ÜST ÜSTE BİNMEZ
             // ─────────────────────────────────────────────────────────────────
 
-            // ── Mevcut butonları sağa taşı (zücaciye alanlarına yer aç) ──
+            // ── Ürünü Kaydet Butonu ──
             if (btnAdd != null)
             {
-                btnAdd.Location = new Point(830, 18);
-                btnAdd.Size = new Size(150, 38);
+                btnAdd.Location = new Point(760, 24);
+                btnAdd.Size = new Size(180, 48);
+                btnAdd.BringToFront();
             }
-            if (btnPos != null)
-            {
-                btnPos.Location = new Point(830, 62);
-                btnPos.Size = new Size(150, 38);
-            }
-            if (btnReturns != null)
-            {
-                btnReturns.Location = new Point(830, 106);
-                btnReturns.Size = new Size(150, 38);
-            }
-            if (btnCustomers != null)
-            {
-                btnCustomers.Location = new Point(830, 150);
-                btnCustomers.Size = new Size(150, 38);
-            }
-            if (btnReports != null)
-            {
-                btnReports.Location = new Point(830, 194);
-                btnReports.Size = new Size(150, 38);
-            }
+            // Yan menüde zaten var olan mükerrer yönlendirme butonlarını gizle
+            if (btnPos != null) btnPos.Visible = false;
+            if (btnReturns != null) btnReturns.Visible = false;
+            if (btnCustomers != null) btnCustomers.Visible = false;
+            if (btnReports != null) btnReports.Visible = false;
 
             // ── HATAY METAL Bölüm Başlığı ──
             var lblGlassSection = new Label
@@ -1257,11 +1337,12 @@ namespace Barcoded_Warehouse_Stock_Tracking
             // ── Kategori Filtreleme Sekmeleri (dgvProducts Üzerinde) ──
             _flpCategoryTabs = new FlowLayoutPanel
             {
-                Location = new Point(18, 218),
-                Size = new Size(1050, 38),
+                Location = new Point(18, 220),
+                Size = new Size(1050, 48),
                 BackColor = Color.Transparent,
                 WrapContents = false,
-                AutoScroll = true
+                AutoScroll = true,
+                Padding = new Padding(0, 4, 0, 4)
             };
 
             // RefreshCategoriesUI() will populate cmbCategory and _flpCategoryTabs
@@ -1296,9 +1377,10 @@ namespace Barcoded_Warehouse_Stock_Tracking
                     var btn = new Guna.UI2.WinForms.Guna2Button
                     {
                         Text = cat,
-                        Size = new Size(140, 32),
-                        BorderRadius = 16,
-                        Margin = new Padding(0, 0, 8, 0),
+                        AutoSize = false,
+                        Size = new Size(Math.Max(110, TextRenderer.MeasureText(cat, new System.Drawing.Font("Segoe UI", 9F, FontStyle.Bold)).Width + 24), 36),
+                        BorderRadius = 18,
+                        Margin = new Padding(0, 0, 6, 0),
                         Font = new System.Drawing.Font("Segoe UI", 9F, FontStyle.Bold),
                         Cursor = Cursors.Hand,
                         Tag = cat

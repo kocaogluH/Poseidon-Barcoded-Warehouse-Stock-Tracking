@@ -210,6 +210,46 @@ namespace Barcoded_Warehouse_Stock_Tracking.Business
             Database.NotifyDataChanged();
             return true;
         }
+
+        public int ApplyBulkPriceAdjustment(WarehouseContext context, List<long> productIds, string categoryFilter, double percentage, bool isDiscount, string targetField, bool roundToTwoDecimals)
+        {
+            var query = context.Products.Where(p => p.IsActive == 1);
+
+            if (productIds != null && productIds.Count > 0)
+            {
+                query = query.Where(p => productIds.Contains(p.Id));
+            }
+            else if (!string.IsNullOrEmpty(categoryFilter) && categoryFilter != "Tümü")
+            {
+                query = query.Where(p => p.Category == categoryFilter);
+            }
+
+            var products = query.ToList();
+            if (products.Count == 0) return 0;
+
+            double multiplier = isDiscount ? (1.0 - (percentage / 100.0)) : (1.0 + (percentage / 100.0));
+
+            foreach (var p in products)
+            {
+                if (targetField == "Satış Fiyatı" || targetField == "Her İkisi")
+                {
+                    double newPrice = p.UnitPrice * multiplier;
+                    if (roundToTwoDecimals) newPrice = Math.Round(newPrice, 2);
+                    p.UnitPrice = Math.Max(0, newPrice);
+                }
+
+                if (targetField == "Maliyet Fiyatı" || targetField == "Her İkisi")
+                {
+                    double newPrice = p.CostPrice * multiplier;
+                    if (roundToTwoDecimals) newPrice = Math.Round(newPrice, 2);
+                    p.CostPrice = Math.Max(0, newPrice);
+                }
+            }
+
+            context.SaveChanges();
+            Database.NotifyDataChanged();
+            return products.Count;
+        }
     }
 
     public class DashboardService

@@ -113,6 +113,9 @@ namespace Barcoded_Warehouse_Stock_Tracking
             this.dgvProducts.DefaultCellStyle = dataGridViewCellStyle2;
             this.dgvProducts.EnableHeadersVisualStyles = false;
             this.dgvProducts.GridColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(55)))), ((int)(((byte)(90)))));
+            this.dgvProducts.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.dgvProducts.Location = new System.Drawing.Point(18, 262);
             this.dgvProducts.Name = "dgvProducts";
             this.dgvProducts.ReadOnly = true;

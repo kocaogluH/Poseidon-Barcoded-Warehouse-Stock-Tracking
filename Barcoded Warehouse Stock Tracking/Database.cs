@@ -338,6 +338,89 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
             }
         }
 
+        public static void ResetAllData()
+        {
+            // 1. İşlem öncesi otomatik yedek al
+            BackupDatabase();
+
+            // 2. Tüm operasyonel verileri temizle
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+
+                using (var pragma = conn.CreateCommand())
+                {
+                    pragma.CommandText = "PRAGMA foreign_keys = OFF;";
+                    pragma.ExecuteNonQuery();
+                }
+
+                using (var tx = conn.BeginTransaction())
+                {
+                    string[] tablesToClear = new[]
+                    {
+                        "SaleReturnItems",
+                        "SaleReturns",
+                        "CustomerCollections",
+                        "CustomerTransactions",
+                        "Payments",
+                        "SaleItems",
+                        "Sales",
+                        "Customers",
+                        "StockMovements",
+                        "QuoteItems",
+                        "Quotes",
+                        "Products",
+                        "Categories",
+                        "Logs"
+                    };
+
+                    foreach (var table in tablesToClear)
+                    {
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.Transaction = tx;
+                            cmd.CommandText = $"DELETE FROM {table};";
+                            try { cmd.ExecuteNonQuery(); } catch { }
+                        }
+                    }
+
+                    // Temizlenen tabloların ID sayaçlarını sıfırla
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.Transaction = tx;
+                        cmd.CommandText = "DELETE FROM sqlite_sequence WHERE name != 'Users';";
+                        try { cmd.ExecuteNonQuery(); } catch { }
+                    }
+
+                    // Varsayılan kategorileri tekrar ekle
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.Transaction = tx;
+                        cmd.CommandText = @"
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Kutu Profil', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Sanayi & Boru', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Sac Grubu (DKP/Siyah/Galvaniz)', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Dolu Demir & Lama', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Köşebent & NPU/NPI', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Paslanmaz Çelik', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Alüminyum', datetime('now'));
+                            INSERT INTO Categories (Name, CreatedAt) VALUES ('Hırdavat & Bağlantı', datetime('now'));
+                        ";
+                        try { cmd.ExecuteNonQuery(); } catch { }
+                    }
+
+                    tx.Commit();
+                }
+
+                using (var pragma = conn.CreateCommand())
+                {
+                    pragma.CommandText = "PRAGMA foreign_keys = ON;";
+                    pragma.ExecuteNonQuery();
+                }
+            }
+
+            NotifyDataChanged();
+        }
 
         public static DataTable GetProducts()
         {

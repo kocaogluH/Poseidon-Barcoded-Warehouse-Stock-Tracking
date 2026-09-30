@@ -133,7 +133,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
             _cmbMethod.Items.AddRange(new object[] { "Cash", "Card" });
             _cmbMethod.SelectedIndex = 0;
 
-            _txtAmount.Location = new Point(165, 0); _txtAmount.Width = 170; _txtAmount.Height = 30;
+            _txtAmount.Location = new Point(165, 0); _txtAmount.Width = 170; _txtAmount.Height = 42;
             _txtAmount.PlaceholderText = "Tutar (TL)"; _txtAmount.BorderRadius = 8;
             _txtAmount.FillColor = BgInput; _txtAmount.BorderColor = UiTheme.InputBorder;
             _txtAmount.ForeColor = TextMain; _txtAmount.Font = new Font("Segoe UI", 10);

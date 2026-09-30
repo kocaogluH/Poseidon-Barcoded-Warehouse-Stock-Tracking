@@ -141,6 +141,9 @@
     <Compile Include="FrmSalesAnalysis.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="FrmBulkPriceUpdate.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Business\ExcelCsvService.cs" />
     <Compile Include="Business\QuoteService.cs" />
     <Compile Include="Program.cs" />

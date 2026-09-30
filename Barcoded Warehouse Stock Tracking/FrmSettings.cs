@@ -22,6 +22,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
         private Guna2CheckBox chkFragileOption;
         private Guna2CheckBox chkCustomerBalance;
         private Guna2Button btnSaveFeatures;
+        private Guna2Button btnResetData;
 
         public FrmSettings()
         {
@@ -32,7 +33,8 @@ namespace Barcoded_Warehouse_Stock_Tracking
         {
             this.Text = "Ayarlar";
             this.BackColor = UiTheme.MainBackground;
-            this.Size = new Size(900, 650);
+            this.Size = new Size(900, 860);
+            this.AutoScroll = true;
             this.FormBorderStyle = FormBorderStyle.None;
 
             // ── Başlık ──
@@ -398,6 +400,62 @@ namespace Barcoded_Warehouse_Stock_Tracking
             btnSaveFeatures.HoverState.FillColor = ControlPaint.Dark(UiTheme.Primary, 0.08f);
             btnSaveFeatures.Click += BtnSaveFeatures_Click;
             pnlFeatureCard.Controls.Add(btnSaveFeatures);
+
+
+            // ── VERİ SIFIRLAMA (FABRİKA AYARLARI) KARTI ──
+            var pnlResetCard = new Guna2Panel
+            {
+                Size = new Size(820, 170),
+                Location = new Point(40, 660),
+                FillColor = Color.White,
+                BorderRadius = 16,
+                ShadowDecoration = {
+                    Enabled = true,
+                    Color = Color.FromArgb(40, 0, 0, 0),
+                    Depth = 12,
+                    BorderRadius = 16
+                },
+                Visible = Session.IsAdmin
+            };
+            Controls.Add(pnlResetCard);
+
+            var lblResetSection = new Label
+            {
+                Text = "⚠️  Tehlikeli Bölge (Fabrika Ayarlarına Dönüş)",
+                ForeColor = Color.FromArgb(220, 53, 69),
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(20, 15),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            pnlResetCard.Controls.Add(lblResetSection);
+
+            var lblResetDesc = new Label
+            {
+                Text = "Bu işlem veritabanındaki tüm ürün, stok hareketi, müşteri, satış, teklif ve iade kayıtlarını tamamen temizler.\nSadece kullanıcı hesapları korunur. İşlem öncesi otomatik veritabanı yedeği alınacaktır.",
+                ForeColor = UiTheme.TextMuted,
+                Font = new Font("Segoe UI", 9),
+                Location = new Point(20, 42),
+                Size = new Size(780, 42),
+                BackColor = Color.Transparent
+            };
+            pnlResetCard.Controls.Add(lblResetDesc);
+
+            btnResetData = new Guna2Button
+            {
+                Text = "🗑️  Tüm İçerikleri Sıfırla (Fabrika Ayarlarına Dön)",
+                Location = new Point(20, 100),
+                Size = new Size(380, 45),
+                BorderRadius = 10,
+                FillColor = Color.FromArgb(220, 53, 69),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Animated = true
+            };
+            btnResetData.HoverState.FillColor = Color.FromArgb(180, 30, 45);
+            btnResetData.Click += BtnResetData_Click;
+            pnlResetCard.Controls.Add(btnResetData);
         }
 
         private void BtnSaveUsername_Click(object sender, EventArgs e)
@@ -526,6 +584,51 @@ namespace Barcoded_Warehouse_Stock_Tracking
             catch (Exception ex)
             {
                 MessageBox.Show("Kaydedilirken hata oluştu: " + ex.Message, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void BtnResetData_Click(object sender, EventArgs e)
+        {
+            if (!Session.IsAdmin)
+            {
+                MessageBox.Show("Bu kritik işlem için sadece yönetici (Admin) yetkisi gereklidir.", "Yetki Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var confirm1 = MessageBox.Show(
+                "Sistemdeki TÜM ürünler, stok hareketleri, müşteriler, satışlar, teklifler, iadeler ve log kayıtları kalıcı olarak silinecektir.\n\n" +
+                "Devam etmek istediğinize emin misiniz?",
+                "⚠️ TÜM İÇERİKLERİ SIFIRLA - ONAY 1/2",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning,
+                MessageBoxDefaultButton.Button2);
+
+            if (confirm1 != DialogResult.Yes) return;
+
+            var confirm2 = MessageBox.Show(
+                "BU İŞLEM GERİ ALINAMAZ!\n\n" +
+                "Sıfırlama başlatılmadan önce verileriniz otomatik olarak 'Belgelerim/BarcodedWarehouse_Backups' klasörüne yedeklenecektir.\n\n" +
+                "Bütün içerikleri sıfırlamak için EVET seçeneğine tıklayın.",
+                "⚠️ SON ONAY - SIFIRLAMA BAŞLATILSIN MI? (2/2)",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Stop,
+                MessageBoxDefaultButton.Button2);
+
+            if (confirm2 != DialogResult.Yes) return;
+
+            try
+            {
+                Database.ResetAllData();
+                MessageBox.Show(
+                    "Tüm veriler başarıyla sıfırlandı ve fabrika ayarlarına döndürüldü.\n\n" +
+                    "İşlem öncesi verilerinizin otomatik yedeği 'Belgelerim/BarcodedWarehouse_Backups' klasörüne kaydedilmiştir.",
+                    "Sıfırlama Tamamlandı",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Sıfırlama sırasında bir hata oluştu:\n" + ex.Message, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
