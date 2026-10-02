@@ -224,26 +224,225 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
                     catch { /* already exists or error */ }
                 }
 
-                using (var cmd = conn.CreateCommand())
+                // migration: brute-force koruma kolonları (FailedAttempts, LockoutUntil)
+                foreach (var lockMig in new[] {
+                    "ALTER TABLE Users ADD COLUMN FailedAttempts INTEGER NOT NULL DEFAULT 0;",
+                    "ALTER TABLE Users ADD COLUMN LockoutUntil TEXT NULL;"
+                })
                 {
-                    cmd.CommandText = "SELECT COUNT(1) FROM Users";
-                    long userCount = Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
-                    if (userCount == 0)
+                    try
                     {
-                        var hash = Security.HashPassword("1234");
-                        using (var ins = conn.CreateCommand())
+                        using (var cmd = conn.CreateCommand())
                         {
-                            ins.CommandText = "INSERT INTO Users(Username, PasswordHash, Role, CreatedAt) VALUES('admin', @h, 'Admin', @dt)";
-                            ins.Parameters.AddWithValue("@h", hash);
-                            ins.Parameters.AddWithValue("@dt", DateTime.Now.ToString("s", CultureInfo.InvariantCulture));
-                            ins.ExecuteNonQuery();
+                            cmd.CommandText = lockMig;
+                            cmd.ExecuteNonQuery();
                         }
                     }
+                    catch { /* already exists */ }
                 }
             }
         }
 
-        public static (long Id, string Role)? AuthenticateUser(string username, string password)
+        public static bool HasAnyUser()
+        {
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT COUNT(1) FROM Users";
+                    return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L) > 0;
+                }
+            }
+        }
+
+        // ────────────────────────────────────────────────────────────
+        //  Brute-Force Koruma
+        // ────────────────────────────────────────────────────────────
+
+        // Giriş denemesi öncesinde çağrılır.
+        // locked=true → kilit süresini, attempts → şimdiye kadarki sayıyı döner.
+        // Süre dolmuşsa otomatik olarak FailedAttempts ve LockoutUntil veritabanında sıfırlanır.
+        public static (bool Locked, DateTime? LockoutUntil, int Attempts) GetLockoutStatus(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return (false, null, 0);
+
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+                long id = -1;
+                int attempts = 0;
+                DateTime? lockUntil = null;
+
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, FailedAttempts, LockoutUntil FROM Users WHERE LOWER(Username) = LOWER(@u) AND IsActive = 1";
+                    cmd.Parameters.AddWithValue("@u", username.Trim());
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (!r.Read()) return (false, null, 0);
+                        id = r.GetInt64(0);
+                        attempts = r.IsDBNull(1) ? 0 : r.GetInt32(1);
+                        string rawUntil = r.IsDBNull(2) ? null : r.GetString(2);
+                        if (!string.IsNullOrEmpty(rawUntil) &&
+                            DateTime.TryParse(rawUntil, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                        {
+                            lockUntil = dt.ToUniversalTime();
+                        }
+                    }
+                }
+
+                if (lockUntil.HasValue)
+                {
+                    if (lockUntil.Value > DateTime.UtcNow)
+                    {
+                        // Halen kilitli
+                        return (true, lockUntil, attempts);
+                    }
+                    else
+                    {
+                        // Kilit süresi DOLDU: FailedAttempts ve LockoutUntil'i sıfırla
+                        using (var resetCmd = conn.CreateCommand())
+                        {
+                            resetCmd.CommandText = "UPDATE Users SET FailedAttempts = 0, LockoutUntil = NULL WHERE Id = @id";
+                            resetCmd.Parameters.AddWithValue("@id", id);
+                            resetCmd.ExecuteNonQuery();
+                        }
+                        return (false, null, 0);
+                    }
+                }
+
+                return (false, null, attempts);
+            }
+        }
+
+        // Hatalı giriş kaydeder; deneme sınırına ulaşıldıysa kilidi devreye alır.
+        // Dönen değer: yeni deneme sayısı.
+        public static int RecordFailedAttempt(string username, int maxAttempts = 5, int lockMinutes = 5)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return 0;
+
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, FailedAttempts FROM Users WHERE LOWER(Username) = LOWER(@u) AND IsActive = 1";
+                    cmd.Parameters.AddWithValue("@u", username.Trim());
+                    long id = -1;
+                    int attempts = 0;
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (!r.Read()) return 0;
+                        id       = r.GetInt64(0);
+                        attempts = r.IsDBNull(1) ? 0 : r.GetInt32(1);
+                    }
+
+                    int newAttempts = attempts + 1;
+                    string lockUntilVal = null;
+                    if (newAttempts >= maxAttempts)
+                    {
+                        lockUntilVal = DateTime.UtcNow.AddMinutes(lockMinutes).ToString("o", CultureInfo.InvariantCulture);
+                    }
+
+                    using (var upd = conn.CreateCommand())
+                    {
+                        upd.CommandText = "UPDATE Users SET FailedAttempts = @a, LockoutUntil = @lu WHERE Id = @id";
+                        upd.Parameters.AddWithValue("@a",  newAttempts);
+                        upd.Parameters.AddWithValue("@lu", (object)lockUntilVal ?? DBNull.Value);
+                        upd.Parameters.AddWithValue("@id", id);
+                        upd.ExecuteNonQuery();
+                    }
+                    return newAttempts;
+                }
+            }
+        }
+
+        // Başarılı girişte veya admin sıfırladığında çağrılır.
+        public static void ResetFailedAttempts(long userId)
+        {
+            using (var conn = GetConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "UPDATE Users SET FailedAttempts = 0, LockoutUntil = NULL WHERE Id = @id";
+                cmd.Parameters.AddWithValue("@id", userId);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        // Admin: belirli kullanıcının kilidini elle kaldırır ve security.log'a kaydeder.
+        public static void UnlockUser(long targetUserId, string targetUsername, string performedByAdmin)
+        {
+            using (var conn = GetConnection())
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "UPDATE Users SET FailedAttempts = 0, LockoutUntil = NULL WHERE Id = @id";
+                cmd.Parameters.AddWithValue("@id", targetUserId);
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+
+            Program.AppendSecurityLog($"Kullanıcı kilidi kaldırıldı. Hedef: '{targetUsername}' (ID: {targetUserId}), Yönetici: '{performedByAdmin}'");
+        }
+
+        // Admin paneli için: kilitli kullanıcıları listeler.
+        public static System.Collections.Generic.List<(long Id, string Username, int Attempts, DateTime? LockoutUntil)> GetLockedUsers()
+        {
+            var list = new System.Collections.Generic.List<(long, string, int, DateTime?)>();
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, Username, FailedAttempts, LockoutUntil FROM Users WHERE LockoutUntil IS NOT NULL ORDER BY LockoutUntil DESC";
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            string rawUntil = r.IsDBNull(3) ? null : r.GetString(3);
+                            DateTime? until = null;
+                            if (!string.IsNullOrEmpty(rawUntil) &&
+                                DateTime.TryParse(rawUntil, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+                            {
+                                var utc = dt.ToUniversalTime();
+                                if (utc > DateTime.UtcNow)
+                                {
+                                    until = utc;
+                                    list.Add((r.GetInt64(0), r.GetString(1), r.IsDBNull(2) ? 0 : r.GetInt32(2), until));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return list;
+        }
+
+        public static long CreateAdminUser(string username, string password)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+                throw new ArgumentException("Kullanıcı adı boş bırakılamaz.");
+
+            if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+                throw new ArgumentException("Şifre en az 8 karakter olmalıdır.");
+
+            var hash = Security.HashPassword(password);
+            using (var conn = GetConnection())
+            {
+                conn.Open();
+                using (var ins = conn.CreateCommand())
+                {
+                    ins.CommandText = "INSERT INTO Users(Username, PasswordHash, Role, IsActive, CreatedAt) VALUES(@u, @h, 'Admin', 1, @dt); SELECT last_insert_rowid();";
+                    ins.Parameters.AddWithValue("@u", username.Trim());
+                    ins.Parameters.AddWithValue("@h", hash);
+                    ins.Parameters.AddWithValue("@dt", DateTime.Now.ToString("s", CultureInfo.InvariantCulture));
+                    return Convert.ToInt64(ins.ExecuteScalar());
+                }
+            }
+        }
+
+        public static (long Id, string Role, string StoredHash)? AuthenticateUser(string username, string password)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return null;
             using (var conn = GetConnection())
@@ -252,16 +451,21 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = "SELECT Id, PasswordHash, Role FROM Users WHERE LOWER(Username) = LOWER(@u) AND IsActive = 1";
-                    cmd.Parameters.AddWithValue("@u", username);
+                    cmd.Parameters.AddWithValue("@u", username.Trim());
                     using (var r = cmd.ExecuteReader())
                     {
-                        if (!r.Read()) return null;
-                        long id = r.GetInt64(0);
-                        string hash = r.GetString(1);
-                        string role = r.GetString(2);
+                        if (!r.Read())
+                        {
+                            // Kullanıcı yoksa bile aynı sürede sahte hash doğrulama çalıştır
+                            Security.DummyVerify(password);
+                            return null;
+                        }
+                        long id       = r.GetInt64(0);
+                        string hash   = r.GetString(1);
+                        string role   = r.GetString(2);
                         if (Security.VerifyPassword(password, hash))
                         {
-                            return (id, role);
+                            return (id, role, hash);
                         }
                         return null;
                     }
@@ -269,9 +473,35 @@ CREATE TABLE IF NOT EXISTS SaleReturnItems (
             }
         }
 
+        // Sessiz rehash: giriş başarılıysa ve hash eski iterasyonla üretildiyse güncelleştir.
+        // Şifre loglanmaz; hata giriş akışını kesmez.
+        public static void RehashPassword(long userId, string password)
+        {
+            try
+            {
+                var newHash = Security.HashPassword(password);
+                using (var conn = GetConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "UPDATE Users SET PasswordHash = @h WHERE Id = @id";
+                    cmd.Parameters.AddWithValue("@h", newHash);
+                    cmd.Parameters.AddWithValue("@id", userId);
+                    conn.Open();
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Şifre loglanmadan sadece istisna mesajı yazılır
+                Program.AppendErrorLog("[Rehash] Kullanıcı " + userId + ": " + ex.Message);
+            }
+        }
+
+
         public static void UpdatePassword(long userId, string newPassword)
         {
             if (string.IsNullOrWhiteSpace(newPassword)) throw new ArgumentException("Şifre boş olamaz.");
+            if (newPassword.Length < 8) throw new ArgumentException("Şifre en az 8 karakter olmalıdır.");
             var hash = Security.HashPassword(newPassword);
             using (var conn = GetConnection())
             using (var cmd = conn.CreateCommand())

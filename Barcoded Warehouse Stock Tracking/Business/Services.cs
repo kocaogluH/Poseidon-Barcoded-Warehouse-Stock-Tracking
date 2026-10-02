@@ -303,13 +303,9 @@ namespace Barcoded_Warehouse_Stock_Tracking.Business
 
         public User Authenticate(string username, string password)
         {
-            // Veritabanı önceden var ise ve şifre hashleri eşleşmiyorsa diye güvenli arka kapı
-            if (username == "admin" && password == "1234")
-            {
-                return new User { Id = 1, Username = "admin", Role = "Admin", IsActive = 1 };
-            }
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return null;
 
-            var user = _repository.Find(u => u.Username == username && u.IsActive == 1).FirstOrDefault();
+            var user = _repository.Find(u => u.Username.ToLower() == username.ToLower() && u.IsActive == 1).FirstOrDefault();
             if (user != null && Security.VerifyPassword(password, user.PasswordHash))
             {
                 return user;

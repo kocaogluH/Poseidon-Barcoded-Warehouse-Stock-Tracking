@@ -21,29 +21,36 @@ namespace Barcoded_Warehouse_Stock_Tracking
         private void InitializeComponent()
         {
             this.Text = "Zorunlu Şifre Değiştirme";
-            this.Size = new Size(400, 300);
+            this.ClientSize = new Size(400, 280);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
+            this.AutoScaleMode = AutoScaleMode.None;
+            this.Font = new Font("Segoe UI", 9.5f);
             this.BackColor = UiTheme.MainBackground;
 
             var lblInfo = new Label
             {
-                Text = "Güvenliğiniz için varsayılan şifrenizi (1234) değiştirmeniz gerekmektedir.",
-                Location = new Point(20, 20),
-                Size = new Size(340, 40),
+                Text = "Güvenliğiniz için lütfen en az 8 karakterli yeni bir şifre belirleyin.",
+                Location = new Point(25, 20),
+                Size = new Size(350, 42),
                 ForeColor = UiTheme.Danger,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
             };
             this.Controls.Add(lblInfo);
 
             txtNewPassword = new Guna2TextBox
             {
-                PlaceholderText = "Yeni Şifre",
+                PlaceholderText = "Yeni Şifre (En az 8 karakter)",
                 UseSystemPasswordChar = true,
-                Location = new Point(20, 80),
-                Size = new Size(340, 36)
+                Location = new Point(25, 75),
+                Size = new Size(350, 42),
+                BorderRadius = 8,
+                FillColor = Color.FromArgb(241, 245, 249),
+                BorderColor = Color.FromArgb(203, 213, 225),
+                Font = new Font("Segoe UI", 9.5f),
+                TextOffset = new Point(6, 0)
             };
             this.Controls.Add(txtNewPassword);
 
@@ -51,21 +58,32 @@ namespace Barcoded_Warehouse_Stock_Tracking
             {
                 PlaceholderText = "Yeni Şifre (Tekrar)",
                 UseSystemPasswordChar = true,
-                Location = new Point(20, 130),
-                Size = new Size(340, 36)
+                Location = new Point(25, 130),
+                Size = new Size(350, 42),
+                BorderRadius = 8,
+                FillColor = Color.FromArgb(241, 245, 249),
+                BorderColor = Color.FromArgb(203, 213, 225),
+                Font = new Font("Segoe UI", 9.5f),
+                TextOffset = new Point(6, 0)
             };
             this.Controls.Add(txtConfirmPassword);
 
             btnSave = new Guna2Button
             {
-                Text = "Şifreyi Kaydet",
-                Location = new Point(20, 190),
-                Size = new Size(340, 45),
-                FillColor = UiTheme.Primary,
-                ForeColor = Color.White
+                Text = "Şifreyi Güncelle ve Devam Et",
+                Location = new Point(25, 195),
+                Size = new Size(350, 46),
+                BorderRadius = 8,
+                FillColor = UiTheme.SidebarSelected,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = Color.White,
+                Cursor = Cursors.Hand
             };
+            btnSave.HoverState.FillColor = Color.FromArgb(2, 110, 170);
             btnSave.Click += BtnSave_Click;
             this.Controls.Add(btnSave);
+
+            this.AcceptButton = btnSave;
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
@@ -73,9 +91,9 @@ namespace Barcoded_Warehouse_Stock_Tracking
             var p1 = txtNewPassword.Text;
             var p2 = txtConfirmPassword.Text;
 
-            if (string.IsNullOrWhiteSpace(p1) || p1.Length < 4)
+            if (string.IsNullOrWhiteSpace(p1) || p1.Length < 8)
             {
-                MessageBox.Show("Şifre en az 4 karakter olmalıdır.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Şifre en az 8 karakter olmalıdır.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 

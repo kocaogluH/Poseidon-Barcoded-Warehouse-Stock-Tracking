@@ -402,11 +402,132 @@ namespace Barcoded_Warehouse_Stock_Tracking
             pnlFeatureCard.Controls.Add(btnSaveFeatures);
 
 
+            // ── KİLİTLİ HESAPLAR KARTI (Sadece Admin) ──
+            var pnlLockedCard = new Guna2Panel
+            {
+                Size = new Size(820, 210),
+                Location = new Point(40, 660),
+                FillColor = Color.White,
+                BorderRadius = 16,
+                ShadowDecoration = {
+                    Enabled = true,
+                    Color = Color.FromArgb(40, 0, 0, 0),
+                    Depth = 12,
+                    BorderRadius = 16
+                },
+                Visible = Session.IsAdmin
+            };
+            Controls.Add(pnlLockedCard);
+
+            var lblLockedSection = new Label
+            {
+                Text = "🔒  Kilitli Hesaplar Yönetimi",
+                ForeColor = UiTheme.TextPrimary,
+                Font = new Font("Segoe UI", 12, FontStyle.Bold),
+                Location = new Point(20, 15),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            pnlLockedCard.Controls.Add(lblLockedSection);
+
+            var lblLockedDesc = new Label
+            {
+                Text = "Hatalı şifre denemeleri nedeniyle geçici olarak kilitlenen kullanıcılar listelenir. Kilidi hemen açabilirsiniz.",
+                ForeColor = UiTheme.TextMuted,
+                Font = new Font("Segoe UI", 9),
+                Location = new Point(20, 42),
+                Size = new Size(780, 20),
+                BackColor = Color.Transparent
+            };
+            pnlLockedCard.Controls.Add(lblLockedDesc);
+
+            var lstLocked = new ListBox
+            {
+                Location = new Point(20, 70),
+                Size = new Size(580, 120),
+                Font = new Font("Segoe UI", 9.5f),
+                ItemHeight = 22
+            };
+            pnlLockedCard.Controls.Add(lstLocked);
+
+            var lockedData = new System.Collections.Generic.List<(long Id, string Username)>();
+
+            void RefreshLockedList()
+            {
+                lstLocked.Items.Clear();
+                lockedData.Clear();
+                var lockedUsers = Database.GetLockedUsers();
+                if (lockedUsers.Count == 0)
+                {
+                    lstLocked.Items.Add("Şu anda kilitli hesap bulunmuyor.");
+                }
+                else
+                {
+                    foreach (var u in lockedUsers)
+                    {
+                        var rem = u.LockoutUntil.HasValue ? u.LockoutUntil.Value.ToLocalTime() - DateTime.Now : TimeSpan.Zero;
+                        string remText = rem > TimeSpan.Zero
+                            ? (rem.TotalMinutes >= 1 ? $"{(int)rem.TotalMinutes} dk {rem.Seconds} sn kaldı" : $"{rem.Seconds} sn kaldı")
+                            : "Süre doldu";
+                        lstLocked.Items.Add($"Kullanıcı: {u.Username}  |  Hatalı Deneme: {u.Attempts}  |  Kalan: {remText}");
+                        lockedData.Add((u.Id, u.Username));
+                    }
+                }
+            }
+
+            if (Session.IsAdmin) RefreshLockedList();
+
+            var btnUnlock = new Guna2Button
+            {
+                Text = "🔓  Kilidi Kaldır",
+                Location = new Point(620, 70),
+                Size = new Size(180, 45),
+                BorderRadius = 10,
+                FillColor = UiTheme.Success,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Animated = true
+            };
+            btnUnlock.HoverState.FillColor = ControlPaint.Dark(UiTheme.Success, 0.08f);
+            btnUnlock.Click += (s, e) =>
+            {
+                int idx = lstLocked.SelectedIndex;
+                if (idx < 0 || idx >= lockedData.Count)
+                {
+                    MessageBox.Show("Lütfen kilidini kaldırmak istediğiniz kullanıcıyı listeden seçin.", "Seçim Yapılmadı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var target = lockedData[idx];
+                Database.UnlockUser(target.Id, target.Username, Session.Username ?? "Admin");
+                MessageBox.Show($"'{target.Username}' kullanıcısının hesap kilidi başarıyla kaldırıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshLockedList();
+            };
+            pnlLockedCard.Controls.Add(btnUnlock);
+
+            var btnRefreshLocked = new Guna2Button
+            {
+                Text = "🔄  Listeyi Yenile",
+                Location = new Point(620, 125),
+                Size = new Size(180, 40),
+                BorderRadius = 10,
+                FillColor = UiTheme.PrimaryDark,
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Animated = true
+            };
+            btnRefreshLocked.HoverState.FillColor = ControlPaint.Dark(UiTheme.PrimaryDark, 0.08f);
+            btnRefreshLocked.Click += (s, e) => RefreshLockedList();
+            pnlLockedCard.Controls.Add(btnRefreshLocked);
+
+
             // ── VERİ SIFIRLAMA (FABRİKA AYARLARI) KARTI ──
             var pnlResetCard = new Guna2Panel
             {
                 Size = new Size(820, 170),
-                Location = new Point(40, 660),
+                Location = new Point(40, 890),
                 FillColor = Color.White,
                 BorderRadius = 16,
                 ShadowDecoration = {
@@ -496,9 +617,9 @@ namespace Barcoded_Warehouse_Stock_Tracking
             var p1 = txtNewPassword.Text;
             var p2 = txtConfirmPassword.Text;
 
-            if (string.IsNullOrWhiteSpace(p1) || p1.Length < 4)
+            if (string.IsNullOrWhiteSpace(p1) || p1.Length < 8)
             {
-                MessageBox.Show("Şifre en az 4 karakter olmalıdır.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Şifre en az 8 karakter olmalıdır.", "Uyarı", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 

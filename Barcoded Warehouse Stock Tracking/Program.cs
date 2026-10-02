@@ -94,5 +94,29 @@ namespace Barcoded_Warehouse_Stock_Tracking
             }
             catch { }
         }
+
+        // Rehash gibi sessiz hatalar için: şifre içermeyecek şekilde düz metin loglar.
+        public static void AppendErrorLog(string message)
+        {
+            try
+            {
+                var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BarcodedWarehouse");
+                var logFile = Path.Combine(appDir, "error.log");
+                File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}{new string('-', 50)}{Environment.NewLine}");
+            }
+            catch { }
+        }
+
+        // Güvenlik denetim kayıtları için (kilit açma, parola sıfırlama vb.)
+        public static void AppendSecurityLog(string message)
+        {
+            try
+            {
+                var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BarcodedWarehouse");
+                var logFile = Path.Combine(appDir, "security.log");
+                File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [SECURITY] {message}{Environment.NewLine}");
+            }
+            catch { }
+        }
     }
 }
