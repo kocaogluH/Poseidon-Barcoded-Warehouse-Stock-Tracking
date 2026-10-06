@@ -665,7 +665,7 @@ namespace Barcoded_Warehouse_Stock_Tracking
 
                     if (MessageBox.Show(msg, "Yeni Güncelleme Mevcut", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                     {
-                        var dlForm = new FrmUpdateDownload(updateInfo.DownloadUrl, updateInfo.LatestVersion);
+                        var dlForm = new FrmUpdateDownload(updateInfo.DownloadUrl, updateInfo.Sha256DownloadUrl, updateInfo.ExpectedSha256Hash, updateInfo.LatestVersion);
                         dlForm.ShowDialog();
                     }
                 }
